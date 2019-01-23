@@ -341,13 +341,9 @@ class CollectData(QWidget):
     def save_message(self):
         if self.save_current_angle() == False:
             return
-        img = cv2.imread('data/test.png')  # 打开图片
         self.qlabel.rectangle_label.clear()
-        self.update_img()
         self.update_list()
-        self.qlabel.img = img.copy()
-        self.qlabel.img_current = img.copy()
-        self.update_img()
+        self.refresh_img()
 
     def save_current_angle(self):
         save_data = []
@@ -372,7 +368,7 @@ class CollectData(QWidget):
                         self.qlabel.rectangle_label[i].x0 * w // self.qlabel.qlabel_length: 
                         self.qlabel.rectangle_label[i].x1 * w // self.qlabel.qlabel_length
                         ]
-                cv2.imwrite('crop_img/' + self.img_name_list[self.current_img_index - 1] + '.png', img_after_crop)
+                cv2.imwrite('crop_img/' + self.img_name_list[self.current_img_index - 1] + '_' + str(i) + '.png', img_after_crop)
 
             if np.shape(np.array(save_data)) != (5, 0):
                 if os.path.exists('crop_img/') == False:
