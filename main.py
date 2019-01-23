@@ -4,7 +4,7 @@ import time
 import cv2
 import sys
 import os
-from PyQt5.QtWidgets import (QWidget, QPushButton, QRadioButton, QLineEdit,
+from PyQt5.QtWidgets import (QWidget, QPushButton, QRadioButton, QLineEdit, QCheckBox, 
                              QHBoxLayout, QVBoxLayout, QMessageBox, QButtonGroup, QApplication, QLabel, QListView, QComboBox)
 from PyQt5.QtCore import QCoreApplication, QRect, Qt, QStringListModel
 from PyQt5.QtGui import QImage, QPixmap, QPainter, QPen, QGuiApplication, QColor
@@ -16,7 +16,7 @@ LABEL_LIST = LABEL_LIST.tolist()
 
 
 class Rectangle():
-    def __init__(self, x0=0, y0=0, x1=0, y1=0, whether_display=False, label=0):
+    def __init__(self, x0=0, x1=0, y0=0, y1=0, whether_display=False, label=0):
         self.x0 = x0
         self.y0 = y0
         self.x1 = x1
@@ -90,7 +90,7 @@ class myLabel(QLabel):
 
     def save_current_border(self, label):
         self.rectangle_tmp = Rectangle(
-            self.x0, self.y0, self.x1, self.y1, True, label)
+            self.x0, self.x1, self.y0, self.y1, True, label)
         self.rectangle_label.append(self.rectangle_tmp)
         self.img_current = self.img.copy()
         self.x0 = 0
@@ -140,6 +140,7 @@ class CollectData(QWidget):
         self.jump_img_index = -1
         self.img_list = []
         self.img_name_list = []
+        self.whether_to_crop = 0
 
     def init_ui(self):
         self.setGeometry(200, 200, 1000, 800)
@@ -152,8 +153,7 @@ class CollectData(QWidget):
             if img is None:
                 continue
             self.img_list.append(img)
-            self.img_name_list.append(os.path.splitext(
-                self.folder_path + '/' + file_name)[0])
+            self.img_name_list.append(os.path.splitext(file_name)[0])
         #QMessageBox.information(self, 'complete', '图片加载完毕')
         self.total_img_number = len(self.img_list)
         self.current_img_index = 1
@@ -173,7 +173,8 @@ class CollectData(QWidget):
         self.goto_chosen_img_button = QPushButton("跳转图片", self)
         self.jump_img_text = QLineEdit('', self)
         self.show_index_message = QLabel(self)
-
+        self.crop_message_box = QCheckBox('裁剪所选图片',self)
+        
         self.img_folder_text.selectAll()
         self.img_folder_text.setFocus()
 
@@ -185,10 +186,11 @@ class CollectData(QWidget):
         self.open_folder_button.setGeometry(710, 590, 150, 40)
         self.jump_img_text.setGeometry(30, 650, 150, 40)
         self.goto_chosen_img_button.setGeometry(200, 650, 150, 40)
-        self.show_index_message.setGeometry(30, 710, 200, 40)
+        self.show_index_message.setGeometry(30, 710, 300, 40)
+        self.crop_message_box.setGeometry(30, 750, 150, 40)
         self.add_border_button.setGeometry(710, 380, 150, 40)
         self.delete_border_button.setGeometry(710, 440, 150, 40)
-
+        
         self.previous_img_button.clicked.connect(self.previous_img)
         self.next_img_button.clicked.connect(self.next_img)
         self.save_message_button.clicked.connect(self.save_message)
@@ -197,6 +199,7 @@ class CollectData(QWidget):
         self.add_border_button.clicked.connect(self.save_current_border)
         self.delete_border_button.clicked.connect(self.delete_border)
         self.goto_chosen_img_button.clicked.connect(self.goto_chosen_img)
+        self.crop_message_box.stateChanged.connect(self.crop_message)
 
         self.label_combo = QComboBox(self)
         for i in range(len(LABEL_LIST)):
@@ -208,6 +211,9 @@ class CollectData(QWidget):
         self.listview.setGeometry(710, 30, 150, 320)
         self.listview.doubleClicked.connect(self.list_clicked)
         self.listview.setEditTriggers(QListView.NoEditTriggers)
+
+    def crop_message(self):
+        self.whether_to_crop = self.crop_message_box.checkState()
 
     def previous_img(self):
         if self.current_img_index == 1:
@@ -230,11 +236,11 @@ class CollectData(QWidget):
             if reply == QMessageBox.No:
                 return
         self.qlabel.rectangle_label.clear()
-        if os.path.isfile(self.img_name_list[self.current_img_index - 1] + '.csv') == False:
+        if os.path.isfile(self.folder_path + '/' + self.img_name_list[self.current_img_index - 1] + '.csv') == False:
             QMessageBox.information(self, 'warning', '当前图片无信息')
             return
         message = pd.read_csv(
-            self.img_name_list[self.current_img_index - 1] + '.csv', sep=',', header=None)
+            self.folder_path + '/' + self.img_name_list[self.current_img_index - 1] + '.csv', sep=',', header=None)
         message = np.array(message.T)
         message = message.astype(int)
         for i in range(len(message)):
@@ -263,8 +269,7 @@ class CollectData(QWidget):
             if img is None:
                 continue
             self.img_list.append(img)
-            self.img_name_list.append(os.path.splitext(
-                self.folder_path + '/' + file_name)[0])
+            self.img_name_list.append(os.path.splitext(file_name)[0])
         QMessageBox.information(self, 'complete', '图片加载完毕')
         self.total_img_number = len(self.img_list)
         self.current_img_index = 1
@@ -334,7 +339,8 @@ class CollectData(QWidget):
             self.label = self.label_button.checkedId()
 
     def save_message(self):
-        self.save_current_angle()
+        if self.save_current_angle() == False:
+            return
         img = cv2.imread('data/test.png')  # 打开图片
         self.qlabel.rectangle_label.clear()
         self.update_img()
@@ -348,21 +354,30 @@ class CollectData(QWidget):
         for i in range(5):
             save_data.append([])
         if len(self.qlabel.rectangle_label) > 0:
-            if os.path.isfile(self.img_name_list[self.current_img_index - 1] + '.csv'):
+            if os.path.isfile(self.folder_path + '/' + self.img_name_list[self.current_img_index - 1] + '.csv'):
                 reply = QMessageBox.question(
                     self, '确认', '是否覆盖当前图片已保存信息？', QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
                 if reply == QMessageBox.No:
-                    return
+                    return False
             for i in range(len(self.qlabel.rectangle_label)):
                 save_data[0].append(self.qlabel.rectangle_label[i].label)
                 save_data[1].append(self.qlabel.rectangle_label[i].x0)
                 save_data[2].append(self.qlabel.rectangle_label[i].x1)
                 save_data[3].append(self.qlabel.rectangle_label[i].y0)
                 save_data[4].append(self.qlabel.rectangle_label[i].y1)
+                h, w, channel = self.qlabel.img.shape
+                img_after_crop = self.qlabel.img[
+                        self.qlabel.rectangle_label[i].y0 * h // self.qlabel.qlabel_width: 
+                        self.qlabel.rectangle_label[i].y1 * h // self.qlabel.qlabel_width,
+                        self.qlabel.rectangle_label[i].x0 * w // self.qlabel.qlabel_length: 
+                        self.qlabel.rectangle_label[i].x1 * w // self.qlabel.qlabel_length
+                        ]
+                cv2.imwrite('crop_img/' + self.img_name_list[self.current_img_index - 1] + '.png', img_after_crop)
 
             if np.shape(np.array(save_data)) != (5, 0):
-                print(self.current_img_index)
-                np.savetxt(self.img_name_list[self.current_img_index - 1] + '.csv',
+                if os.path.exists('crop_img/') == False:
+                    os.makedirs('crop_img/')
+                np.savetxt(self.folder_path + '/' + self.img_name_list[self.current_img_index - 1] + '.csv',
                            np.array(save_data), delimiter=',')
 
     def delete_border(self):
