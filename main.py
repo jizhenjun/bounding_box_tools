@@ -361,6 +361,9 @@ class CollectData(QWidget):
                 save_data[2].append(self.qlabel.rectangle_label[i].x1)
                 save_data[3].append(self.qlabel.rectangle_label[i].y0)
                 save_data[4].append(self.qlabel.rectangle_label[i].y1)
+
+                if os.path.exists('crop_img/') == False:
+                    os.makedirs('crop_img/')
                 h, w, channel = self.qlabel.img.shape
                 img_after_crop = self.qlabel.img[
                         self.qlabel.rectangle_label[i].y0 * h // self.qlabel.qlabel_width: 
@@ -371,8 +374,6 @@ class CollectData(QWidget):
                 cv2.imwrite('crop_img/' + self.img_name_list[self.current_img_index - 1] + '_' + str(i) + '.png', img_after_crop)
 
             if np.shape(np.array(save_data)) != (5, 0):
-                if os.path.exists('crop_img/') == False:
-                    os.makedirs('crop_img/')
                 np.savetxt(self.folder_path + '/' + self.img_name_list[self.current_img_index - 1] + '.csv',
                            np.array(save_data), delimiter=',')
 
