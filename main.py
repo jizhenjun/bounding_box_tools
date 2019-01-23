@@ -4,14 +4,16 @@ import time
 import cv2
 import sys
 import os
-from PyQt5.QtWidgets import (QWidget, QPushButton, QRadioButton, QLineEdit, 
+from PyQt5.QtWidgets import (QWidget, QPushButton, QRadioButton, QLineEdit,
                              QHBoxLayout, QVBoxLayout, QMessageBox, QButtonGroup, QApplication, QLabel, QListView, QComboBox)
 from PyQt5.QtCore import QCoreApplication, QRect, Qt, QStringListModel
 from PyQt5.QtGui import QImage, QPixmap, QPainter, QPen, QGuiApplication, QColor
 
-LABEL_LIST = pd.read_csv('label_list.csv',sep='\t',encoding='GBK',header = None)
+LABEL_LIST = pd.read_csv('label_list.csv', sep='\t',
+                         encoding='GBK', header=None)
 LABEL_LIST = np.array(LABEL_LIST[0])
 LABEL_LIST = LABEL_LIST.tolist()
+
 
 class Rectangle():
     def __init__(self, x0=0, y0=0, x1=0, y1=0, whether_display=False, label=0):
@@ -29,23 +31,53 @@ class myLabel(QLabel):
     y0 = 0
     x1 = 0
     y1 = 0
+
+    orgx = 0
+    orgy = 0
+    nowx = 0
+    nowy = 0
+
     img = None
     img_current = None
     qlabel_length = 640
     qlabel_width = 480
 
+    def clamp_int(self, v, mi, ma):
+        # return value in [min, max)
+        mi = int(mi)
+        ma = int(ma)
+        if v < mi:
+            return mi
+        if v >= ma:
+            return ma-1
+        return int(v)
+
     def mousePressEvent(self, event):
         self.flag = True
-        self.x0 = event.x()
-        self.y0 = event.y()
+        self.orgx = self.clamp_int(event.x(), 0, self.qlabel_length)
+        self.orgy = self.clamp_int(event.y(), 0, self.qlabel_width)
+
+        self.x0 = self.orgx
+        self.y0 = self.orgy
 
     def mouseReleaseEvent(self, event):
         self.flag = False
 
     def mouseMoveEvent(self, event):
         if self.flag:
-            self.x1 = event.x()
-            self.y1 = event.y()
+            self.nowx = self.clamp_int(event.x(), 0, self.qlabel_length)
+            self.nowy = self.clamp_int(event.y(), 0, self.qlabel_width)
+
+            if self.orgx < self.nowx:
+                self.x0, self.x1 = self.orgx, self.nowx
+            else:
+                self.x0, self.x1 = self.nowx, self.orgx
+
+            if self.orgy < self.nowy:
+                self.y0, self.y1 = self.orgy, self.nowy
+            else:
+                self.y0, self.y1 = self.nowy, self.orgy
+
             self.update()
 
     def paintEvent(self, event):
@@ -73,14 +105,15 @@ class myLabel(QLabel):
 
     def update_qlabel_img(self):  # 更新当前的图片
         self.img_current = self.img.copy()
-        h, w, channel= self.img_current.shape
+        h, w, channel = self.img_current.shape
         for i in range(len(self.rectangle_label)):
             if self.rectangle_label[i].whether_display == True:  # 如果mark为true
                 cv2.rectangle(
                     self.img_current, (self.rectangle_label[i].x0 * w // self.qlabel_length,
                                        self.rectangle_label[i].y0 * h // self.qlabel_width),
-                                      (self.rectangle_label[i].x1 * w // self.qlabel_length,
-                                       self.rectangle_label[i].y1 * h // self.qlabel_width), (0, 0, 255), 4)
+                    (self.rectangle_label[i].x1 * w // self.qlabel_length,
+                     self.rectangle_label[i].y1 * h // self.qlabel_width), (0, 0, 255), 4)
+
 
 class CollectData(QWidget):
     def __init__(self):
@@ -119,7 +152,8 @@ class CollectData(QWidget):
             if img is None:
                 continue
             self.img_list.append(img)
-            self.img_name_list.append(os.path.splitext(self.folder_path + '/' + file_name)[0])
+            self.img_name_list.append(os.path.splitext(
+                self.folder_path + '/' + file_name)[0])
         #QMessageBox.information(self, 'complete', '图片加载完毕')
         self.total_img_number = len(self.img_list)
         self.current_img_index = 1
@@ -147,7 +181,7 @@ class CollectData(QWidget):
         self.next_img_button.setGeometry(200, 530, 150, 40)
         self.save_message_button.setGeometry(370, 530, 150, 40)
         self.show_message_button.setGeometry(540, 530, 150, 40)
-        self.img_folder_text.setGeometry(30, 590, 660 ,40)
+        self.img_folder_text.setGeometry(30, 590, 660, 40)
         self.open_folder_button.setGeometry(710, 590, 150, 40)
         self.jump_img_text.setGeometry(30, 650, 150, 40)
         self.goto_chosen_img_button.setGeometry(200, 650, 150, 40)
@@ -191,14 +225,16 @@ class CollectData(QWidget):
 
     def show_message(self):
         if len(self.qlabel.rectangle_label) > 0:
-            reply = QMessageBox.question(self, '确认', '当前有未保存信息，是否继续？', QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            reply = QMessageBox.question(
+                self, '确认', '当前有未保存信息，是否继续？', QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             if reply == QMessageBox.No:
                 return
         self.qlabel.rectangle_label.clear()
         if os.path.isfile(self.img_name_list[self.current_img_index - 1] + '.csv') == False:
             QMessageBox.information(self, 'warning', '当前图片无信息')
             return
-        message = pd.read_csv(self.img_name_list[self.current_img_index - 1] + '.csv', sep=',' ,header = None)
+        message = pd.read_csv(
+            self.img_name_list[self.current_img_index - 1] + '.csv', sep=',', header=None)
         message = np.array(message.T)
         message = message.astype(int)
         for i in range(len(message)):
@@ -212,7 +248,7 @@ class CollectData(QWidget):
             )
         self.update_list()
         self.refresh_img()
-        
+
         QMessageBox.information(self, 'complete', '信息加载完毕')
 
     def open_folder(self):
@@ -227,15 +263,19 @@ class CollectData(QWidget):
             if img is None:
                 continue
             self.img_list.append(img)
-            self.img_name_list.append(os.path.splitext(self.folder_path + '/' + file_name)[0])
+            self.img_name_list.append(os.path.splitext(
+                self.folder_path + '/' + file_name)[0])
         QMessageBox.information(self, 'complete', '图片加载完毕')
         self.total_img_number = len(self.img_list)
         self.current_img_index = 1
         self.refresh_img()
 
     def goto_chosen_img(self):
+        if self.jump_img_text.text().isdigit() == False:
+            QMessageBox.information(self, 'warning', '请输入合法的数字')
+            return
         if int(self.jump_img_text.text()) <= 0 or int(self.jump_img_text.text()) > self.total_img_number:
-            QMessageBox.information(self, 'warning', '已经是最后一张啦')
+            QMessageBox.information(self, 'warning', '请输入合法的数字')
             return
         self.current_img_index = int(self.jump_img_text.text())
         self.refresh_img()
@@ -245,7 +285,8 @@ class CollectData(QWidget):
         self.qlabel.img = img.copy()
         self.qlabel.update_qlabel_img()
         self.update_img()
-        self.show_index_message.setText('一共' + str(self.total_img_number) + '张图片,当前第' + str(self.current_img_index) + '张图片')
+        self.show_index_message.setText(
+            '一共' + str(self.total_img_number) + '张图片,当前第' + str(self.current_img_index) + '张图片')
 
     def label_on_activated(self):
         self.label = self.label_combo.currentIndex()
@@ -254,15 +295,18 @@ class CollectData(QWidget):
         slm = QStringListModel()
         string_list = []
         for i in range(len(self.qlabel.rectangle_label)):
-            string_list.append(LABEL_LIST[self.qlabel.rectangle_label[i].label])
+            string_list.append(
+                LABEL_LIST[self.qlabel.rectangle_label[i].label])
         slm.setStringList(string_list)
         self.listview.setModel(slm)
 
     def list_clicked(self, qModelIndex):
         if self.qlabel.rectangle_label[qModelIndex.row()].whether_display == True:
-            self.qlabel.rectangle_label[qModelIndex.row()].whether_display = False
+            self.qlabel.rectangle_label[qModelIndex.row(
+            )].whether_display = False
         else:
-            self.qlabel.rectangle_label[qModelIndex.row()].whether_display = True
+            self.qlabel.rectangle_label[qModelIndex.row(
+            )].whether_display = True
         self.qlabel.update_qlabel_img()
         self.update_img()
 
@@ -273,7 +317,8 @@ class CollectData(QWidget):
         self.update_list()
 
     def update_img(self):
-        img_resize = cv2.resize(self.qlabel.img_current, (self.qlabel.qlabel_length, self.qlabel.qlabel_width))
+        img_resize = cv2.resize(
+            self.qlabel.img_current, (self.qlabel.qlabel_length, self.qlabel.qlabel_width))
         height, width, bytesPerComponent = img_resize.shape
         bytesPerLine = 3 * width
         cv2.cvtColor(img_resize, cv2.COLOR_BGR2RGB, img_resize)
@@ -299,14 +344,15 @@ class CollectData(QWidget):
         self.update_img()
 
     def save_current_angle(self):
-        if os.path.isfile(self.img_name_list[self.current_img_index - 1] + '.csv'):
-            reply = QMessageBox.question(self, '确认', '是否覆盖当前图片已保存信息？', QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-            if reply == QMessageBox.No:
-                return
         save_data = []
         for i in range(5):
             save_data.append([])
         if len(self.qlabel.rectangle_label) > 0:
+            if os.path.isfile(self.img_name_list[self.current_img_index - 1] + '.csv'):
+                reply = QMessageBox.question(
+                    self, '确认', '是否覆盖当前图片已保存信息？', QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+                if reply == QMessageBox.No:
+                    return
             for i in range(len(self.qlabel.rectangle_label)):
                 save_data[0].append(self.qlabel.rectangle_label[i].label)
                 save_data[1].append(self.qlabel.rectangle_label[i].x0)
@@ -327,6 +373,7 @@ class CollectData(QWidget):
             self.update_list()
         else:
             QMessageBox.information(self, 'warning', '请先选中一行')
+
 
 if __name__ == '__main__':
 
