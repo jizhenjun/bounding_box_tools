@@ -114,6 +114,18 @@ class myLabel(QLabel):
                     (self.rectangle_label[i].x1 * w // self.qlabel_length,
                      self.rectangle_label[i].y1 * h // self.qlabel_width), (0, 0, 255), 4)
 
+    def update_img(self):
+        img_resize = cv2.resize(
+            self.img_current, (self.qlabel_length, self.qlabel_width))
+        height, width, bytesPerComponent = img_resize.shape
+        bytesPerLine = 3 * width
+        cv2.cvtColor(img_resize, cv2.COLOR_BGR2RGB, img_resize)
+        QImg = QImage(img_resize.data, width, height,
+                      bytesPerLine, QImage.Format_RGB888)
+        pixmap = QPixmap.fromImage(QImg)
+        self.setPixmap(pixmap)
+        self.setCursor(Qt.CrossCursor)
+
 
 class CollectData(QWidget):
     def __init__(self):
@@ -124,12 +136,21 @@ class CollectData(QWidget):
         self.init_ui()
         self.show()
 
+    '''
+    def paintEvent(self, QPaintEvent):
+        painter = QPainter(self)
+        painter.setPen(QColor(166,66,250))          
+        painter.begin(self)
+        painter.draw()
+        painter.end()
+    '''
+
     def init_img(self):
         self.qlabel = myLabel(self)
         img = cv2.imread('data/test.png')  # 打开图片
         self.qlabel.img = img.copy()
         self.qlabel.img_current = img.copy()
-        self.update_img()
+        self.qlabel.update_img()
 
     def init_variable(self):
         self.label = 0
@@ -289,7 +310,7 @@ class CollectData(QWidget):
         img = self.img_list[self.current_img_index - 1]
         self.qlabel.img = img.copy()
         self.qlabel.update_qlabel_img()
-        self.update_img()
+        self.qlabel.update_img()
         self.show_index_message.setText(
             '一共' + str(self.total_img_number) + '张图片,当前第' + str(self.current_img_index) + '张图片')
 
@@ -313,25 +334,15 @@ class CollectData(QWidget):
             self.qlabel.rectangle_label[qModelIndex.row(
             )].whether_display = True
         self.qlabel.update_qlabel_img()
-        self.update_img()
+        self.qlabel.update_img()
 
     def save_current_border(self):
         self.qlabel.save_current_border(self.label)
         self.qlabel.update_qlabel_img()
-        self.update_img()
+        self.qlabel.update_img()
         self.update_list()
 
-    def update_img(self):
-        img_resize = cv2.resize(
-            self.qlabel.img_current, (self.qlabel.qlabel_length, self.qlabel.qlabel_width))
-        height, width, bytesPerComponent = img_resize.shape
-        bytesPerLine = 3 * width
-        cv2.cvtColor(img_resize, cv2.COLOR_BGR2RGB, img_resize)
-        QImg = QImage(img_resize.data, width, height,
-                      bytesPerLine, QImage.Format_RGB888)
-        pixmap = QPixmap.fromImage(QImg)
-        self.qlabel.setPixmap(pixmap)
-        self.qlabel.setCursor(Qt.CrossCursor)
+    
 
     def label_clicked(self):
         sender = self.sender()
@@ -371,7 +382,7 @@ class CollectData(QWidget):
                         self.qlabel.rectangle_label[i].x0 * w // self.qlabel.qlabel_length: 
                         self.qlabel.rectangle_label[i].x1 * w // self.qlabel.qlabel_length
                         ]
-                cv2.imwrite('crop_img/' + self.img_name_list[self.current_img_index - 1] + '_' + str(i) + '.png', img_after_crop)
+                cv2.imwrite('crop_img/' + self.img_name_list[self.current_img_index - 1] + '_' + str(i) + '.jpg', img_after_crop)
 
             if np.shape(np.array(save_data)) != (5, 0):
                 np.savetxt(self.folder_path + '/' + self.img_name_list[self.current_img_index - 1] + '.csv',
@@ -381,7 +392,7 @@ class CollectData(QWidget):
         if self.listview.currentIndex().row() > -1:
             self.qlabel.delete_border(self.listview.currentIndex().row())
             self.qlabel.update_qlabel_img()
-            self.update_img()
+            self.qlabel.update_img()
             self.update_list()
         else:
             QMessageBox.information(self, 'warning', '请先选中一行')
