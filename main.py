@@ -382,7 +382,8 @@ class CollectData(QWidget):
                         self.qlabel.rectangle_label[i].x0 * w // self.qlabel.qlabel_length: 
                         self.qlabel.rectangle_label[i].x1 * w // self.qlabel.qlabel_length
                         ]
-                cv2.imwrite('crop_img/' + self.img_name_list[self.current_img_index - 1] + '_' + str(i) + '.jpg', img_after_crop)
+                if self.whether_to_crop == 1:
+                    cv2.imwrite('crop_img/' + self.img_name_list[self.current_img_index - 1] + '_' + str(i) + '.jpg', img_after_crop)
 
             if np.shape(np.array(save_data)) != (5, 0):
                 np.savetxt(self.folder_path + '/' + self.img_name_list[self.current_img_index - 1] + '.csv',
